@@ -1,0 +1,17 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: account-service
+  threads:
+    virtual:
+      enabled: true
+  datasource:
+    url: jdbc:postgresql://localhost:5433/accountdb
+    username: postgres
+    password: 1716
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
