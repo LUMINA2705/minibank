@@ -4,6 +4,7 @@ import java.net.URI;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
@@ -67,6 +68,15 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler{
 	        pd.setType(URI.create(TYPE_BASE + "validation"));
 	        pd.setProperty("errors", errors);
 	        return ResponseEntity.badRequest().body(pd);
+	    }
+	    
+	    @ExceptionHandler(DataIntegrityViolationException.class)
+	    ProblemDetail handleDuplicate(DataIntegrityViolationException ex) {
+	        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT,
+	                "This request conflicts with an existing record (possibly a duplicate). Please retry.");
+	        pd.setTitle("Conflict");
+	        pd.setType(URI.create(TYPE_BASE + "conflict"));
+	        return pd;
 	    }
 		
 

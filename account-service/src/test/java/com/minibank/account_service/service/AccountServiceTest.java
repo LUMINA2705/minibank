@@ -12,11 +12,13 @@ import com.minibank.account_service.domain.AccountType;
 import com.minibank.account_service.dto.AccountResponse;
 import com.minibank.account_service.dto.CreateAccountRequest;
 import com.minibank.account_service.exception.AccountNotFoundException;
+import com.minibank.account_service.exception.BusinessRuleException;
 import com.minibank.account_service.repository.AccountRepository;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -65,5 +67,35 @@ public class AccountServiceTest {
         assertThat(response.id()).isNotNull();
 
         verify(accountRepository).save(any(Account.class));
+    }
+    
+    @Test
+    void close_withBalance_throwsBalanceNotZero() {
+        // Arrange: a real Account object with 100 rupees
+        Account account = Account.open("MB1", "CUST-1", AccountType.SAVINGS, new BigDecimal("100.00"));
+        when(accountRepository.findById(account.getId())).thenReturn(Optional.of(account));
+
+        // Act + Assert
+        assertThatThrownBy(() -> accountService.close(account.getId()))
+                .isInstanceOf(BusinessRuleException.class)
+                .hasFieldOrPropertyWithValue("code", "BALANCE_NOT_ZERO");
+
+        // and the account must NOT have been closed
+        assertThat(account.getStatus()).isEqualTo(AccountStatus.ACTIVE);
+    }
+    
+    @Test
+    void close_zeroBalance_closesAndIsIdempotent() {
+        // Arrange
+        Account account = Account.open("MB2", "CUST-1", AccountType.SAVINGS, BigDecimal.ZERO);
+        when(accountRepository.findById(account.getId())).thenReturn(Optional.of(account));
+
+        // Act: close twice
+        accountService.close(account.getId());
+        accountService.close(account.getId());   // must not throw
+
+        // Assert
+        assertThat(account.getStatus()).isEqualTo(AccountStatus.CLOSED);
+        verify(accountRepository, never()).save(any());
     }
 }

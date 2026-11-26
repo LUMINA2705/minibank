@@ -7,6 +7,8 @@ import java.util.UUID;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
+import com.minibank.account_service.exception.BusinessRuleException;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -55,8 +57,7 @@ public class Account {
 	protected Account() {
 	}
 
-	public static Account open(String accountNumber, String customerId,
-			AccountType type, BigDecimal initialDeposit) {
+	public static Account open(String accountNumber, String customerId, AccountType type, BigDecimal initialDeposit) {
 		Account account = new Account();
 		account.id = UUID.randomUUID();
 		account.accountNumber = accountNumber;
@@ -67,23 +68,49 @@ public class Account {
 		account.currency = "INR";
 		return account;
 	}
-	
+
 	public void changeStatus(AccountStatus newStatus) {
-        this.status = newStatus;
-    }
+		this.status = newStatus;
+	}
+
+	private void requiredActiveStatusAndPostiveAmount(BigDecimal amount) {
+		if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+			throw new BusinessRuleException("INVALID_AMOUNT", "Amount must be greater than 0");
+		}
+		if (status != AccountStatus.ACTIVE) {
+			throw new BusinessRuleException("ACCOUNT_NOT_ACTIVE", "Account " + accountNumber + " is " + status);
+		}
+	}
+
+	public void debit(BigDecimal amount) {
+
+		requiredActiveStatusAndPostiveAmount(amount);
+
+		if (balance.compareTo(amount) < 0) {
+			throw new BusinessRuleException("INSUFFICIENT_FUNDS",
+					"Insufficient funds: balance " + balance + ", requested " + amount);
+		}
+		balance = balance.subtract(amount);
+	}
+
+	public void credit(BigDecimal amount) {
+		requiredActiveStatusAndPostiveAmount(amount);
+
+		balance = balance.add(amount);
+	}
 
 	@PrePersist
-    void onCreate() {
-        Instant now = Instant.now();
-        this.createdAt = now;
-        this.updatedAt = now;
-    }
+	void onCreate() {
+		Instant now = Instant.now();
+		this.createdAt = now;
+		this.updatedAt = now;
+	}
 
-    @PreUpdate
-    void onUpdate() {
-        this.updatedAt = Instant.now();
-    }
-    
+	@PreUpdate
+	void onUpdate() {
+		this.updatedAt = Instant.now();
+	}
+
 	public UUID getId() {
 		return id;
 	}
